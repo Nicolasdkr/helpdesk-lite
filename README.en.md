@@ -23,7 +23,7 @@
 
 - [x] REST API with input validation and centralized error handling
 - [x] Data model: users, tickets, and comments
-- [ ] JWT authentication with roles (`ADMIN`, `AGENT`, `USER`)
+- [x] JWT authentication with roles (`ADMIN`, `AGENT`, `USER`)
 - [ ] Ticket CRUD with filters by status, priority, and category
 - [ ] Ticket assignment to technicians
 - [ ] Ticket comments
@@ -81,7 +81,10 @@ Each domain module follows a layered architecture:
 ```bash
 git clone https://github.com/Nicolasdkr/helpdesk-lite.git
 cd helpdesk-lite
-docker compose up --build
+docker compose up --build -d
+
+# Create the demo users
+docker compose exec backend npx prisma db seed
 ```
 
 The API is available at http://localhost:3000/api/health
@@ -97,10 +100,23 @@ cd backend
 cp .env.example .env
 npm install
 
-# 3. Apply migrations and start
+# 3. Apply migrations, create demo users and start
 npm run db:migrate
+npm run db:seed
 npm run dev
 ```
+
+> 💡 In VS Code, open [`backend/requests.http`](./backend/requests.http) with the **REST Client** extension to try every endpoint with one click.
+
+### 👥 Demo users
+
+All of them use the password `Password123!`
+
+| Role | Email | Can |
+|------|-------|-----|
+| ADMIN | `admin@helpdesk.dev` | Everything, including user management |
+| AGENT | `agent@helpdesk.dev` | Handle and resolve tickets |
+| USER | `user@helpdesk.dev` | Create and follow their own tickets |
 
 ### Useful scripts (`backend/`)
 
@@ -111,16 +127,31 @@ npm run dev
 | `npm run typecheck` | Type-check with TypeScript |
 | `npm run build` | Compile to JavaScript in `dist/` |
 | `npm run db:migrate` | Create/apply migrations |
+| `npm run db:seed` | Create the demo users |
 | `npm run db:studio` | Visual database browser |
 
 ## 📡 API
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/api/health` | Service status |
-| GET | `/api/health/ready` | Database connection status |
+Protected routes require the `Authorization: Bearer <token>` header. Get a token from `/api/auth/login`.
 
-<!-- Will be extended with auth, tickets, and comments -->
+| Method | Route | Access | Description |
+|--------|-------|--------|-------------|
+| GET | `/api/health` | Public | Service status |
+| GET | `/api/health/ready` | Public | Database connection status |
+| POST | `/api/auth/register` | Public | Sign up (always with the `USER` role) |
+| POST | `/api/auth/login` | Public | Log in, returns a JWT |
+| GET | `/api/auth/me` | Authenticated | Current user profile |
+| GET | `/api/users` | `ADMIN` | List users |
+
+All error responses share the format `{ "error": { "message": "...", "details": { ... } } }`.
+
+## 🔐 Security
+
+- Passwords hashed with **bcrypt** and never returned in responses.
+- **JWTs** signed with an environment secret and with an expiry.
+- Public sign-up cannot choose a role: `AGENT` and `ADMIN` are assigned only by an admin.
+- Login returns the same error whether the email doesn't exist or the password is wrong, so it doesn't reveal which accounts exist.
+- Secure HTTP headers with **Helmet** and restricted CORS.
 
 ## 🧪 Tests
 
@@ -128,6 +159,8 @@ npm run dev
 cd backend
 npm test
 ```
+
+Integration tests use a separate database (`helpdesk_test`) that Docker Compose creates automatically, so they never touch your development data.
 
 ## 🗺️ Roadmap
 
