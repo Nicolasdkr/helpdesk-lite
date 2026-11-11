@@ -23,7 +23,7 @@
 
 - [x] API REST con validación de datos y manejo de errores centralizado
 - [x] Modelo de datos: usuarios, tickets y comentarios
-- [ ] Autenticación con JWT y roles (`ADMIN`, `AGENT`, `USER`)
+- [x] Autenticación con JWT y roles (`ADMIN`, `AGENT`, `USER`)
 - [ ] CRUD de tickets con filtros por estado, prioridad y categoría
 - [ ] Asignación de tickets a técnicos
 - [ ] Comentarios en tickets
@@ -81,7 +81,10 @@ Cada módulo de dominio sigue una arquitectura en capas:
 ```bash
 git clone https://github.com/Nicolasdkr/helpdesk-lite.git
 cd helpdesk-lite
-docker compose up --build
+docker compose up --build -d
+
+# Crea los usuarios de demostración
+docker compose exec backend npx prisma db seed
 ```
 
 La API queda en http://localhost:3000/api/health
@@ -97,10 +100,23 @@ cd backend
 cp .env.example .env
 npm install
 
-# 3. Aplica las migraciones y arranca
+# 3. Aplica las migraciones, crea los usuarios demo y arranca
 npm run db:migrate
+npm run db:seed
 npm run dev
 ```
+
+> 💡 En VS Code, abre [`backend/requests.http`](./backend/requests.http) con la extensión **REST Client** para probar todos los endpoints con un clic.
+
+### 👥 Usuarios de demostración
+
+Todos usan la contraseña `Password123!`
+
+| Rol | Email | Puede |
+|-----|-------|-------|
+| ADMIN | `admin@helpdesk.dev` | Todo, incluida la gestión de usuarios |
+| AGENT | `agent@helpdesk.dev` | Atender y resolver tickets |
+| USER | `user@helpdesk.dev` | Crear y seguir sus propios tickets |
 
 ### Scripts útiles (`backend/`)
 
@@ -111,16 +127,31 @@ npm run dev
 | `npm run typecheck` | Verifica tipos de TypeScript |
 | `npm run build` | Compila a JavaScript en `dist/` |
 | `npm run db:migrate` | Crea/aplica migraciones |
+| `npm run db:seed` | Crea los usuarios de demostración |
 | `npm run db:studio` | Explorador visual de la base de datos |
 
 ## 📡 API
 
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | `/api/health` | Estado del servicio |
-| GET | `/api/health/ready` | Estado de la conexión a la base de datos |
+Las rutas protegidas requieren la cabecera `Authorization: Bearer <token>`. El token se obtiene con `/api/auth/login`.
 
-<!-- Se irá completando con auth, tickets y comentarios -->
+| Método | Ruta | Acceso | Descripción |
+|--------|------|--------|-------------|
+| GET | `/api/health` | Público | Estado del servicio |
+| GET | `/api/health/ready` | Público | Estado de la conexión a la base de datos |
+| POST | `/api/auth/register` | Público | Registro (siempre con rol `USER`) |
+| POST | `/api/auth/login` | Público | Inicio de sesión, devuelve un JWT |
+| GET | `/api/auth/me` | Autenticado | Perfil del usuario actual |
+| GET | `/api/users` | `ADMIN` | Lista de usuarios |
+
+Todas las respuestas de error comparten el formato `{ "error": { "message": "...", "details": { ... } } }`.
+
+## 🔐 Seguridad
+
+- Contraseñas hasheadas con **bcrypt**; nunca se devuelven en las respuestas.
+- **JWT** firmados con un secreto de entorno y con caducidad.
+- El registro público no permite elegir el rol: `AGENT` y `ADMIN` solo los asigna un administrador.
+- El login devuelve el mismo error si el email no existe o la contraseña es incorrecta, para no revelar qué cuentas existen.
+- Cabeceras HTTP seguras con **Helmet** y CORS restringido.
 
 ## 🧪 Tests
 
@@ -128,6 +159,8 @@ npm run dev
 cd backend
 npm test
 ```
+
+Los tests de integración usan una base de datos aparte (`helpdesk_test`), que Docker Compose crea automáticamente. Así nunca tocan tus datos de desarrollo.
 
 ## 🗺️ Roadmap
 

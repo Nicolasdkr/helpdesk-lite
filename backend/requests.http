@@ -1,8 +1,10 @@
 # Peticiones de ejemplo para la extensión "REST Client" de VS Code.
 # Haz clic en "Send Request" encima de cada petición.
-# Requisito: la API corriendo (npm run dev o docker compose up).
+# Requisitos: la API corriendo (npm run dev) y los usuarios demo creados (npm run db:seed).
 
 @baseUrl = http://localhost:3000/api
+
+### ─────────────── Salud ───────────────
 
 ### Estado del servicio (no usa la base de datos)
 GET {{baseUrl}}/health
@@ -10,5 +12,73 @@ GET {{baseUrl}}/health
 ### Estado de la conexión a PostgreSQL
 GET {{baseUrl}}/health/ready
 
-### Ruta inexistente: devuelve 404 con el formato de error estándar
-GET {{baseUrl}}/no-existe
+### ─────────────── Autenticación ───────────────
+
+### Registro de un usuario nuevo (siempre con rol USER)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Persona de Prueba",
+  "email": "prueba@helpdesk.dev",
+  "password": "Password123!"
+}
+
+### Registro con datos inválidos → 400 con el detalle de cada campo
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "A",
+  "email": "no-es-un-email",
+  "password": "123"
+}
+
+### Login como ADMIN (el token se guarda en {{adminToken}})
+# @name loginAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@helpdesk.dev",
+  "password": "Password123!"
+}
+
+### Login como USER (el token se guarda en {{userToken}})
+# @name loginUser
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@helpdesk.dev",
+  "password": "Password123!"
+}
+
+### Login con contraseña incorrecta → 401
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@helpdesk.dev",
+  "password": "incorrecta"
+}
+
+@adminToken = {{loginAdmin.response.body.token}}
+@userToken = {{loginUser.response.body.token}}
+
+### Mi perfil (ejecuta antes "Login como ADMIN")
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{adminToken}}
+
+### Mi perfil sin token → 401
+GET {{baseUrl}}/auth/me
+
+### ─────────────── Usuarios (solo ADMIN) ───────────────
+
+### Listar usuarios como ADMIN → 200
+GET {{baseUrl}}/users
+Authorization: Bearer {{adminToken}}
+
+### Listar usuarios como USER → 403 (ejecuta antes "Login como USER")
+GET {{baseUrl}}/users
+Authorization: Bearer {{userToken}}
