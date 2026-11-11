@@ -1,0 +1,39 @@
+# Helpdesk Lite — entorno completo con Docker
+#
+#   Todo en Docker:          docker compose up --build
+#   Solo la base de datos:   docker compose up -d db   (y la API con `npm run dev`)
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: helpdesk-db
+    environment:
+      POSTGRES_USER: helpdesk
+      POSTGRES_PASSWORD: helpdesk
+      POSTGRES_DB: helpdesk
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U helpdesk -d helpdesk"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: helpdesk-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://helpdesk:helpdesk@db:5432/helpdesk?schema=public
+      CORS_ORIGIN: http://localhost:5173
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:

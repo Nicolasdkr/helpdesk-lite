@@ -1,0 +1,14 @@
+# Peticiones de ejemplo para la extensión "REST Client" de VS Code.
+# Haz clic en "Send Request" encima de cada petición.
+# Requisito: la API corriendo (npm run dev o docker compose up).
+
+@baseUrl = http://localhost:3000/api
+
+### Estado del servicio (no usa la base de datos)
+GET {{baseUrl}}/health
+
+### Estado de la conexión a PostgreSQL
+GET {{baseUrl}}/health/ready
+
+### Ruta inexistente: devuelve 404 con el formato de error estándar
+GET {{baseUrl}}/no-existe

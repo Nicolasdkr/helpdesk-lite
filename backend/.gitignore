@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+
+# Variables de entorno (solo se versiona .env.example)
+.env
+
+# Cliente de Prisma generado (se regenera con `npm run db:generate`)
+/src/generated/prisma

@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "humao.rest-client",
+    "prisma.prisma",
+    "ms-azuretools.vscode-containers",
+    "editorconfig.editorconfig"
+  ]
+}
