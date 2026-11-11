@@ -79,7 +79,7 @@ Cada módulo de dominio sigue una arquitectura en capas:
 ### Opción A — Todo con Docker (lo más rápido)
 
 ```bash
-git clone https://github.com/<tu-usuario>/helpdesk-lite.git
+git clone https://github.com/Nicolasdkr/helpdesk-lite.git
 cd helpdesk-lite
 docker compose up --build
 ```
@@ -143,5 +143,5 @@ Revisa [CONTRIBUTING.md](./CONTRIBUTING.md) para la convención de commits y ram
 
 ## 👤 Autor
 
-**&lt;Tu Nombre&gt;** — Desarrollador Full Stack Junior
-[LinkedIn](https://linkedin.com/in/<tu-perfil>) · [GitHub](https://github.com/<tu-usuario>)
+**Nicolas** — Desarrollador Full Stack Junior
+[LinkedIn](https://www.linkedin.com/in/nicolas-maldonado-a8519739b/) · [GitHub](https://github.com/Nicolasdkr)

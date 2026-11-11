@@ -79,7 +79,7 @@ Each domain module follows a layered architecture:
 ### Option A — Everything in Docker (fastest)
 
 ```bash
-git clone https://github.com/<your-username>/helpdesk-lite.git
+git clone https://github.com/Nicolasdkr/helpdesk-lite.git
 cd helpdesk-lite
 docker compose up --build
 ```
@@ -143,5 +143,5 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for commit and branch conventions.
 
 ## 👤 Author
 
-**&lt;Your Name&gt;** — Junior Full Stack Developer
-[LinkedIn](https://linkedin.com/in/<your-profile>) · [GitHub](https://github.com/<your-username>)
+**Nicolas** — Junior Full Stack Developer
+[LinkedIn](https://www.linkedin.com/in/nicolas-maldonado-a8519739b/) · [GitHub](https://github.com/Nicolasdkr)
