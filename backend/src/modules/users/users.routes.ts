@@ -4,9 +4,14 @@ import * as usersService from "./users.service.js";
 
 export const usersRouter = Router();
 
-// Todas las rutas de usuarios son solo para administradores.
-usersRouter.use(authenticate, authorize("ADMIN"));
+usersRouter.use(authenticate);
 
-usersRouter.get("/", async (_req, res) => {
+/** Lista completa de usuarios: solo administradores. */
+usersRouter.get("/", authorize("ADMIN"), async (_req, res) => {
   res.json({ users: await usersService.listUsers() });
+});
+
+/** Técnicos disponibles para asignar tickets (desplegable "Asignar a"). */
+usersRouter.get("/agents", authorize("AGENT", "ADMIN"), async (_req, res) => {
+  res.json({ users: await usersService.listAgents() });
 });

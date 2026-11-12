@@ -5,6 +5,7 @@ import { env } from "./config/env.js";
 import { errorHandler, notFoundHandler } from "./middlewares/error-handler.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
+import { ticketsRouter } from "./modules/tickets/tickets.routes.js";
 import { usersRouter } from "./modules/users/users.routes.js";
 
 /**
@@ -21,6 +22,7 @@ export function createApp() {
   app.use("/api/health", healthRouter);
   app.use("/api/auth", authRouter);
   app.use("/api/users", usersRouter);
+  app.use("/api/tickets", ticketsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
