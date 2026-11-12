@@ -21,6 +21,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./
+# Cliente de Prisma en TypeScript: lo necesita el seed (`npx prisma db seed`)
+COPY --from=build /app/src/generated ./src/generated
 
 USER node
 EXPOSE 3000
