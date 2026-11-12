@@ -1,6 +1,7 @@
 # Peticiones de ejemplo para la extensión "REST Client" de VS Code.
 # Haz clic en "Send Request" encima de cada petición.
-# Requisitos: la API corriendo (npm run dev) y los usuarios demo creados (npm run db:seed).
+# Requisitos: la API corriendo (npm run dev) y los datos demo creados (npm run db:seed).
+# Recomendado: ejecuta primero los tres logins para guardar los tokens.
 
 @baseUrl = http://localhost:3000/api
 
@@ -14,27 +15,27 @@ GET {{baseUrl}}/health/ready
 
 ### ─────────────── Autenticación ───────────────
 
-### Registro de un usuario nuevo (siempre con rol USER)
-POST {{baseUrl}}/auth/register
+### Login como USER (guarda el token en {{userToken}})
+# @name loginUser
+POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
-  "name": "Persona de Prueba",
-  "email": "prueba@helpdesk.dev",
+  "email": "user@helpdesk.dev",
   "password": "Password123!"
 }
 
-### Registro con datos inválidos → 400 con el detalle de cada campo
-POST {{baseUrl}}/auth/register
+### Login como AGENT (guarda el token en {{agentToken}})
+# @name loginAgent
+POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
-  "name": "A",
-  "email": "no-es-un-email",
-  "password": "123"
+  "email": "agent@helpdesk.dev",
+  "password": "Password123!"
 }
 
-### Login como ADMIN (el token se guarda en {{adminToken}})
+### Login como ADMIN (guarda el token en {{adminToken}})
 # @name loginAdmin
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
@@ -44,13 +45,17 @@ Content-Type: application/json
   "password": "Password123!"
 }
 
-### Login como USER (el token se guarda en {{userToken}})
-# @name loginUser
-POST {{baseUrl}}/auth/login
+@userToken = {{loginUser.response.body.token}}
+@agentToken = {{loginAgent.response.body.token}}
+@adminToken = {{loginAdmin.response.body.token}}
+
+### Registro de un usuario nuevo (siempre con rol USER)
+POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
 {
-  "email": "user@helpdesk.dev",
+  "name": "Persona de Prueba",
+  "email": "prueba@helpdesk.dev",
   "password": "Password123!"
 }
 
@@ -63,15 +68,114 @@ Content-Type: application/json
   "password": "incorrecta"
 }
 
-@adminToken = {{loginAdmin.response.body.token}}
-@userToken = {{loginUser.response.body.token}}
-
-### Mi perfil (ejecuta antes "Login como ADMIN")
+### Mi perfil
 GET {{baseUrl}}/auth/me
+Authorization: Bearer {{userToken}}
+
+### ─────────────── Tickets ───────────────
+
+### Crear un ticket como USER (guarda el id en {{ticketId}})
+# @name createTicket
+POST {{baseUrl}}/tickets
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "title": "Outlook no sincroniza el calendario",
+  "description": "Desde esta mañana las reuniones nuevas no aparecen en el calendario de Outlook.",
+  "category": "SOFTWARE"
+}
+
+@ticketId = {{createTicket.response.body.ticket.id}}
+
+### Mis tickets (USER: solo ve los suyos)
+GET {{baseUrl}}/tickets
+Authorization: Bearer {{userToken}}
+
+### Todos los tickets (AGENT), urgentes primero
+GET {{baseUrl}}/tickets?sort=priority&order=desc
+Authorization: Bearer {{agentToken}}
+
+### Filtrar: abiertos de red, buscando "vpn"
+GET {{baseUrl}}/tickets?status=OPEN&category=NETWORK&search=vpn
+Authorization: Bearer {{agentToken}}
+
+### Tickets asignados a mí, página 1 de 5 en 5
+GET {{baseUrl}}/tickets?assignedToId=me&page=1&pageSize=5
+Authorization: Bearer {{agentToken}}
+
+### Detalle de un ticket
+GET {{baseUrl}}/tickets/{{ticketId}}
+Authorization: Bearer {{userToken}}
+
+### Editar texto (el creador, mientras siga OPEN)
+PATCH {{baseUrl}}/tickets/{{ticketId}}
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "description": "Las reuniones nuevas no aparecen. Ya probé a reiniciar Outlook."
+}
+
+### USER intenta cambiar la prioridad → 403
+PATCH {{baseUrl}}/tickets/{{ticketId}}
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "priority": "URGENT"
+}
+
+### AGENT cambia prioridad y categoría
+PATCH {{baseUrl}}/tickets/{{ticketId}}
+Authorization: Bearer {{agentToken}}
+Content-Type: application/json
+
+{
+  "priority": "HIGH"
+}
+
+### Técnicos disponibles para asignar (guarda el primero en {{assigneeId}})
+# @name agents
+GET {{baseUrl}}/users/agents
+Authorization: Bearer {{agentToken}}
+
+@assigneeId = {{agents.response.body.users[0].id}}
+
+### Asignar el ticket
+PATCH {{baseUrl}}/tickets/{{ticketId}}/assign
+Authorization: Bearer {{agentToken}}
+Content-Type: application/json
+
+{
+  "assignedToId": "{{assigneeId}}"
+}
+
+### Pasar a "en curso"
+PATCH {{baseUrl}}/tickets/{{ticketId}}/status
+Authorization: Bearer {{agentToken}}
+Content-Type: application/json
+
+{
+  "status": "IN_PROGRESS"
+}
+
+### Resolver (rellena resolvedAt)
+PATCH {{baseUrl}}/tickets/{{ticketId}}/status
+Authorization: Bearer {{agentToken}}
+Content-Type: application/json
+
+{
+  "status": "RESOLVED"
+}
+
+### Eliminar como AGENT → 403
+DELETE {{baseUrl}}/tickets/{{ticketId}}
+Authorization: Bearer {{agentToken}}
+
+### Eliminar como ADMIN → 204
+DELETE {{baseUrl}}/tickets/{{ticketId}}
 Authorization: Bearer {{adminToken}}
-
-### Mi perfil sin token → 401
-GET {{baseUrl}}/auth/me
 
 ### ─────────────── Usuarios (solo ADMIN) ───────────────
 
@@ -79,6 +183,6 @@ GET {{baseUrl}}/auth/me
 GET {{baseUrl}}/users
 Authorization: Bearer {{adminToken}}
 
-### Listar usuarios como USER → 403 (ejecuta antes "Login como USER")
+### Listar usuarios como USER → 403
 GET {{baseUrl}}/users
 Authorization: Bearer {{userToken}}

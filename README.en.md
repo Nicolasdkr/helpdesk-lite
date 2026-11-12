@@ -24,8 +24,8 @@
 - [x] REST API with input validation and centralized error handling
 - [x] Data model: users, tickets, and comments
 - [x] JWT authentication with roles (`ADMIN`, `AGENT`, `USER`)
-- [ ] Ticket CRUD with filters by status, priority, and category
-- [ ] Ticket assignment to technicians
+- [x] Ticket CRUD with filters, search, sorting, and pagination
+- [x] Ticket assignment to technicians and a validated status workflow
 - [ ] Ticket comments
 - [ ] Metrics dashboard (open tickets, by priority, resolution time)
 - [ ] React frontend
@@ -106,7 +106,10 @@ npm run db:seed
 npm run dev
 ```
 
-> 💡 In VS Code, open [`backend/requests.http`](./backend/requests.http) with the **REST Client** extension to try every endpoint with one click.
+### 🧰 Trying the API
+
+- **VS Code:** open [`backend/requests.http`](./backend/requests.http) with the **REST Client** extension and click *Send Request*.
+- **Postman:** *Import* → [`docs/postman/helpdesk-lite.postman_collection.json`](./docs/postman/helpdesk-lite.postman_collection.json). Run the three logins in the **Auth** folder first: each one saves its token to the collection variables automatically.
 
 ### 👥 Demo users
 
@@ -127,7 +130,7 @@ All of them use the password `Password123!`
 | `npm run typecheck` | Type-check with TypeScript |
 | `npm run build` | Compile to JavaScript in `dist/` |
 | `npm run db:migrate` | Create/apply migrations |
-| `npm run db:seed` | Create the demo users |
+| `npm run db:seed` | Create the demo users and tickets |
 | `npm run db:studio` | Visual database browser |
 
 ## 📡 API
@@ -142,6 +145,43 @@ Protected routes require the `Authorization: Bearer <token>` header. Get a token
 | POST | `/api/auth/login` | Public | Log in, returns a JWT |
 | GET | `/api/auth/me` | Authenticated | Current user profile |
 | GET | `/api/users` | `ADMIN` | List users |
+| GET | `/api/users/agents` | `AGENT`, `ADMIN` | Technicians a ticket can be assigned to |
+| GET | `/api/tickets` | Authenticated | Paginated list with filters (see below) |
+| POST | `/api/tickets` | Authenticated | Create a ticket |
+| GET | `/api/tickets/:id` | Authenticated | Ticket details |
+| PATCH | `/api/tickets/:id` | Creator, `AGENT`, `ADMIN` | Edit title, description, priority, or category |
+| PATCH | `/api/tickets/:id/status` | `AGENT`, `ADMIN` | Change status |
+| PATCH | `/api/tickets/:id/assign` | `AGENT`, `ADMIN` | Assign or unassign (`null`) a technician |
+| DELETE | `/api/tickets/:id` | `ADMIN` | Delete a ticket |
+
+**`GET /api/tickets` query parameters:**
+
+| Parameter | Values |
+|-----------|--------|
+| `status` | `OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED` |
+| `priority` | `LOW`, `MEDIUM`, `HIGH`, `URGENT` |
+| `category` | `HARDWARE`, `SOFTWARE`, `NETWORK`, `ACCESS`, `OTHER` |
+| `assignedToId` | A technician's UUID or `me` |
+| `search` | Text to search in title and description |
+| `sort` / `order` | `createdAt`, `updatedAt` or `priority` / `asc` or `desc` |
+| `page` / `pageSize` | Page (from 1) / size (max 50) |
+
+The response includes `{ data: [...], meta: { page, pageSize, total, totalPages } }`.
+
+### Business rules
+
+| Action | USER | AGENT | ADMIN |
+|--------|:----:|:-----:|:-----:|
+| View tickets | Own only | All | All |
+| Create ticket | ✅ | ✅ | ✅ |
+| Edit title/description | Own only, while `OPEN` | ✅ | ✅ |
+| Change priority/category | ❌ | ✅ | ✅ |
+| Change status / assign | ❌ | ✅ | ✅ |
+| Delete | ❌ | ❌ | ✅ |
+
+**Status workflow:** `OPEN → IN_PROGRESS → RESOLVED → CLOSED`. A resolved ticket can be reopened (`RESOLVED → IN_PROGRESS`) and `CLOSED` is final. Invalid transitions return `409`.
+
+If a `USER` requests someone else's ticket, the API returns `404` (not `403`) so it doesn't reveal that the ticket exists.
 
 All error responses share the format `{ "error": { "message": "...", "details": { ... } } }`.
 
@@ -161,6 +201,15 @@ npm test
 ```
 
 Integration tests use a separate database (`helpdesk_test`) that Docker Compose creates automatically, so they never touch your development data.
+
+## 🩺 Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `503 Base de datos no disponible` | Docker Desktop or the `db` container is stopped | Open Docker Desktop and run `docker compose up -d db`. Check with `GET /api/health/ready` |
+| `400 El cuerpo de la petición no es un JSON válido` | Malformed JSON (trailing commas, “smart” quotes…) | In Postman use *Body → raw → JSON* |
+| `401 Falta el token de acceso` | The JWT was not sent | Add the `Authorization: Bearer <token>` header (the Postman collection does it after login) |
+| Tests fail with `database "helpdesk_test" does not exist` | The Postgres volume was created before the test DB was added | `docker exec helpdesk-db psql -U helpdesk -c "CREATE DATABASE helpdesk_test OWNER helpdesk;"` |
 
 ## 🗺️ Roadmap
 
