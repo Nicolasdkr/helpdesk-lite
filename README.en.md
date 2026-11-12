@@ -23,9 +23,9 @@
 
 - [x] REST API with input validation and centralized error handling
 - [x] Data model: users, tickets, and comments
-- [ ] JWT authentication with roles (`ADMIN`, `AGENT`, `USER`)
-- [ ] Ticket CRUD with filters by status, priority, and category
-- [ ] Ticket assignment to technicians
+- [x] JWT authentication with roles (`ADMIN`, `AGENT`, `USER`)
+- [x] Ticket CRUD with filters, search, sorting, and pagination
+- [x] Ticket assignment to technicians and a validated status workflow
 - [ ] Ticket comments
 - [ ] Metrics dashboard (open tickets, by priority, resolution time)
 - [ ] React frontend
@@ -81,7 +81,10 @@ Each domain module follows a layered architecture:
 ```bash
 git clone https://github.com/Nicolasdkr/helpdesk-lite.git
 cd helpdesk-lite
-docker compose up --build
+docker compose up --build -d
+
+# Create the demo users
+docker compose exec backend npx prisma db seed
 ```
 
 The API is available at http://localhost:3000/api/health
@@ -97,10 +100,26 @@ cd backend
 cp .env.example .env
 npm install
 
-# 3. Apply migrations and start
+# 3. Apply migrations, create demo users and start
 npm run db:migrate
+npm run db:seed
 npm run dev
 ```
+
+### 🧰 Trying the API
+
+- **VS Code:** open [`backend/requests.http`](./backend/requests.http) with the **REST Client** extension and click *Send Request*.
+- **Postman:** *Import* → [`docs/postman/helpdesk-lite.postman_collection.json`](./docs/postman/helpdesk-lite.postman_collection.json). Run the three logins in the **Auth** folder first: each one saves its token to the collection variables automatically.
+
+### 👥 Demo users
+
+All of them use the password `Password123!`
+
+| Role | Email | Can |
+|------|-------|-----|
+| ADMIN | `admin@helpdesk.dev` | Everything, including user management |
+| AGENT | `agent@helpdesk.dev` | Handle and resolve tickets |
+| USER | `user@helpdesk.dev` | Create and follow their own tickets |
 
 ### Useful scripts (`backend/`)
 
@@ -111,16 +130,68 @@ npm run dev
 | `npm run typecheck` | Type-check with TypeScript |
 | `npm run build` | Compile to JavaScript in `dist/` |
 | `npm run db:migrate` | Create/apply migrations |
+| `npm run db:seed` | Create the demo users and tickets |
 | `npm run db:studio` | Visual database browser |
 
 ## 📡 API
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/api/health` | Service status |
-| GET | `/api/health/ready` | Database connection status |
+Protected routes require the `Authorization: Bearer <token>` header. Get a token from `/api/auth/login`.
 
-<!-- Will be extended with auth, tickets, and comments -->
+| Method | Route | Access | Description |
+|--------|-------|--------|-------------|
+| GET | `/api/health` | Public | Service status |
+| GET | `/api/health/ready` | Public | Database connection status |
+| POST | `/api/auth/register` | Public | Sign up (always with the `USER` role) |
+| POST | `/api/auth/login` | Public | Log in, returns a JWT |
+| GET | `/api/auth/me` | Authenticated | Current user profile |
+| GET | `/api/users` | `ADMIN` | List users |
+| GET | `/api/users/agents` | `AGENT`, `ADMIN` | Technicians a ticket can be assigned to |
+| GET | `/api/tickets` | Authenticated | Paginated list with filters (see below) |
+| POST | `/api/tickets` | Authenticated | Create a ticket |
+| GET | `/api/tickets/:id` | Authenticated | Ticket details |
+| PATCH | `/api/tickets/:id` | Creator, `AGENT`, `ADMIN` | Edit title, description, priority, or category |
+| PATCH | `/api/tickets/:id/status` | `AGENT`, `ADMIN` | Change status |
+| PATCH | `/api/tickets/:id/assign` | `AGENT`, `ADMIN` | Assign or unassign (`null`) a technician |
+| DELETE | `/api/tickets/:id` | `ADMIN` | Delete a ticket |
+
+**`GET /api/tickets` query parameters:**
+
+| Parameter | Values |
+|-----------|--------|
+| `status` | `OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED` |
+| `priority` | `LOW`, `MEDIUM`, `HIGH`, `URGENT` |
+| `category` | `HARDWARE`, `SOFTWARE`, `NETWORK`, `ACCESS`, `OTHER` |
+| `assignedToId` | A technician's UUID or `me` |
+| `search` | Text to search in title and description |
+| `sort` / `order` | `createdAt`, `updatedAt` or `priority` / `asc` or `desc` |
+| `page` / `pageSize` | Page (from 1) / size (max 50) |
+
+The response includes `{ data: [...], meta: { page, pageSize, total, totalPages } }`.
+
+### Business rules
+
+| Action | USER | AGENT | ADMIN |
+|--------|:----:|:-----:|:-----:|
+| View tickets | Own only | All | All |
+| Create ticket | ✅ | ✅ | ✅ |
+| Edit title/description | Own only, while `OPEN` | ✅ | ✅ |
+| Change priority/category | ❌ | ✅ | ✅ |
+| Change status / assign | ❌ | ✅ | ✅ |
+| Delete | ❌ | ❌ | ✅ |
+
+**Status workflow:** `OPEN → IN_PROGRESS → RESOLVED → CLOSED`. A resolved ticket can be reopened (`RESOLVED → IN_PROGRESS`) and `CLOSED` is final. Invalid transitions return `409`.
+
+If a `USER` requests someone else's ticket, the API returns `404` (not `403`) so it doesn't reveal that the ticket exists.
+
+All error responses share the format `{ "error": { "message": "...", "details": { ... } } }`.
+
+## 🔐 Security
+
+- Passwords hashed with **bcrypt** and never returned in responses.
+- **JWTs** signed with an environment secret and with an expiry.
+- Public sign-up cannot choose a role: `AGENT` and `ADMIN` are assigned only by an admin.
+- Login returns the same error whether the email doesn't exist or the password is wrong, so it doesn't reveal which accounts exist.
+- Secure HTTP headers with **Helmet** and restricted CORS.
 
 ## 🧪 Tests
 
@@ -128,6 +199,17 @@ npm run dev
 cd backend
 npm test
 ```
+
+Integration tests use a separate database (`helpdesk_test`) that Docker Compose creates automatically, so they never touch your development data.
+
+## 🩺 Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `503 Base de datos no disponible` | Docker Desktop or the `db` container is stopped | Open Docker Desktop and run `docker compose up -d db`. Check with `GET /api/health/ready` |
+| `400 El cuerpo de la petición no es un JSON válido` | Malformed JSON (trailing commas, “smart” quotes…) | In Postman use *Body → raw → JSON* |
+| `401 Falta el token de acceso` | The JWT was not sent | Add the `Authorization: Bearer <token>` header (the Postman collection does it after login) |
+| Tests fail with `database "helpdesk_test" does not exist` | The Postgres volume was created before the test DB was added | `docker exec helpdesk-db psql -U helpdesk -c "CREATE DATABASE helpdesk_test OWNER helpdesk;"` |
 
 ## 🗺️ Roadmap
 
