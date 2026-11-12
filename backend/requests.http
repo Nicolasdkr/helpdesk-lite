@@ -169,6 +169,37 @@ Content-Type: application/json
   "status": "RESOLVED"
 }
 
+### ─────────────── Comentarios ───────────────
+
+### USER comenta en su ticket
+POST {{baseUrl}}/tickets/{{ticketId}}/comments
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "body": "¿Hay alguna novedad? Necesito el calendario para mañana."
+}
+
+### AGENT escribe una nota interna (el USER no la verá)
+POST {{baseUrl}}/tickets/{{ticketId}}/comments
+Authorization: Bearer {{agentToken}}
+Content-Type: application/json
+
+{
+  "body": "Parece un problema del perfil de Outlook. Probar a recrearlo.",
+  "isInternal": true
+}
+
+### Comentarios vistos por el USER (sin notas internas)
+GET {{baseUrl}}/tickets/{{ticketId}}/comments
+Authorization: Bearer {{userToken}}
+
+### Comentarios vistos por el AGENT (todos)
+GET {{baseUrl}}/tickets/{{ticketId}}/comments
+Authorization: Bearer {{agentToken}}
+
+### ─────────────── Eliminar ───────────────
+
 ### Eliminar como AGENT → 403
 DELETE {{baseUrl}}/tickets/{{ticketId}}
 Authorization: Bearer {{agentToken}}

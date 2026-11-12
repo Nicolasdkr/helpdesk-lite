@@ -4,6 +4,7 @@
 
 [Español](./README.md) | **English**
 
+[![CI](https://github.com/Nicolasdkr/helpdesk-lite/actions/workflows/ci.yml/badge.svg)](https://github.com/Nicolasdkr/helpdesk-lite/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/Node.js-26_LTS-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5-000000?logo=express)
@@ -26,10 +27,10 @@
 - [x] JWT authentication with roles (`ADMIN`, `AGENT`, `USER`)
 - [x] Ticket CRUD with filters, search, sorting, and pagination
 - [x] Ticket assignment to technicians and a validated status workflow
-- [ ] Ticket comments
+- [x] Ticket comments, with internal notes visible only to support staff
 - [ ] Metrics dashboard (open tickets, by priority, resolution time)
 - [ ] React frontend
-- [ ] Continuous integration with GitHub Actions
+- [x] Continuous integration with GitHub Actions
 
 ## 🛠️ Tech stack
 
@@ -152,7 +153,10 @@ Protected routes require the `Authorization: Bearer <token>` header. Get a token
 | PATCH | `/api/tickets/:id` | Creator, `AGENT`, `ADMIN` | Edit title, description, priority, or category |
 | PATCH | `/api/tickets/:id/status` | `AGENT`, `ADMIN` | Change status |
 | PATCH | `/api/tickets/:id/assign` | `AGENT`, `ADMIN` | Assign or unassign (`null`) a technician |
-| DELETE | `/api/tickets/:id` | `ADMIN` | Delete a ticket |
+| DELETE | `/api/tickets/:id` | `ADMIN` | Delete a ticket (and its comments) |
+| GET | `/api/tickets/:id/comments` | Authenticated | Ticket comments, in chronological order |
+| POST | `/api/tickets/:id/comments` | Authenticated | Add a comment (`isInternal: true` only `AGENT`/`ADMIN`) |
+| DELETE | `/api/tickets/:id/comments/:commentId` | Author, `ADMIN` | Delete a comment |
 
 **`GET /api/tickets` query parameters:**
 
@@ -178,10 +182,14 @@ The response includes `{ data: [...], meta: { page, pageSize, total, totalPages 
 | Change priority/category | ❌ | ✅ | ✅ |
 | Change status / assign | ❌ | ✅ | ✅ |
 | Delete | ❌ | ❌ | ✅ |
+| Comment | On own tickets | ✅ | ✅ |
+| See / write internal notes | ❌ | ✅ | ✅ |
 
 **Status workflow:** `OPEN → IN_PROGRESS → RESOLVED → CLOSED`. A resolved ticket can be reopened (`RESOLVED → IN_PROGRESS`) and `CLOSED` is final. Invalid transitions return `409`.
 
 If a `USER` requests someone else's ticket, the API returns `404` (not `403`) so it doesn't reveal that the ticket exists.
+
+`CLOSED` tickets cannot be commented on. Commenting updates the ticket's "last activity" (`updatedAt`).
 
 All error responses share the format `{ "error": { "message": "...", "details": { ... } } }`.
 
@@ -201,6 +209,16 @@ npm test
 ```
 
 Integration tests use a separate database (`helpdesk_test`) that Docker Compose creates automatically, so they never touch your development data.
+
+### ⚙️ Continuous integration
+
+[GitHub Actions](./.github/workflows/ci.yml) runs on every push to `main` and on every Pull Request:
+
+1. Starts a real PostgreSQL service.
+2. Installs dependencies, type-checks, runs every test, and builds, on **Node 24 and 26**.
+3. Builds the backend Docker image.
+
+A PR is merged only when everything is green.
 
 ## 🩺 Troubleshooting
 

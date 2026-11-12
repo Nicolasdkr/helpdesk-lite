@@ -4,6 +4,7 @@
 
 **Español** | [English](./README.en.md)
 
+[![CI](https://github.com/Nicolasdkr/helpdesk-lite/actions/workflows/ci.yml/badge.svg)](https://github.com/Nicolasdkr/helpdesk-lite/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/Node.js-26_LTS-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5-000000?logo=express)
@@ -26,10 +27,10 @@
 - [x] Autenticación con JWT y roles (`ADMIN`, `AGENT`, `USER`)
 - [x] CRUD de tickets con filtros, búsqueda, orden y paginación
 - [x] Asignación de tickets a técnicos y flujo de estados validado
-- [ ] Comentarios en tickets
+- [x] Comentarios en tickets, con notas internas solo visibles para soporte
 - [ ] Panel con métricas (tickets abiertos, por prioridad, tiempo de resolución)
 - [ ] Frontend en React
-- [ ] Integración continua con GitHub Actions
+- [x] Integración continua con GitHub Actions
 
 ## 🛠️ Stack tecnológico
 
@@ -152,7 +153,10 @@ Las rutas protegidas requieren la cabecera `Authorization: Bearer <token>`. El t
 | PATCH | `/api/tickets/:id` | Creador, `AGENT`, `ADMIN` | Editar título, descripción, prioridad o categoría |
 | PATCH | `/api/tickets/:id/status` | `AGENT`, `ADMIN` | Cambiar el estado |
 | PATCH | `/api/tickets/:id/assign` | `AGENT`, `ADMIN` | Asignar o desasignar (`null`) un técnico |
-| DELETE | `/api/tickets/:id` | `ADMIN` | Eliminar un ticket |
+| DELETE | `/api/tickets/:id` | `ADMIN` | Eliminar un ticket (y sus comentarios) |
+| GET | `/api/tickets/:id/comments` | Autenticado | Comentarios del ticket, en orden cronológico |
+| POST | `/api/tickets/:id/comments` | Autenticado | Comentar (`isInternal: true` solo `AGENT`/`ADMIN`) |
+| DELETE | `/api/tickets/:id/comments/:commentId` | Autor, `ADMIN` | Borrar un comentario |
 
 **Parámetros de `GET /api/tickets`:**
 
@@ -178,10 +182,14 @@ La respuesta incluye `{ data: [...], meta: { page, pageSize, total, totalPages }
 | Cambiar prioridad/categoría | ❌ | ✅ | ✅ |
 | Cambiar estado / asignar | ❌ | ✅ | ✅ |
 | Eliminar | ❌ | ❌ | ✅ |
+| Comentar | En los suyos | ✅ | ✅ |
+| Ver / escribir notas internas | ❌ | ✅ | ✅ |
 
 **Flujo de estados:** `OPEN → IN_PROGRESS → RESOLVED → CLOSED`. Un ticket resuelto se puede reabrir (`RESOLVED → IN_PROGRESS`) y `CLOSED` es definitivo. Las transiciones no válidas responden `409`.
 
 Si un `USER` pide un ticket ajeno, la API responde `404` (no `403`), para no revelar que ese ticket existe.
+
+No se puede comentar en tickets `CLOSED`. Comentar actualiza la "última actividad" (`updatedAt`) del ticket.
 
 Todas las respuestas de error comparten el formato `{ "error": { "message": "...", "details": { ... } } }`.
 
@@ -201,6 +209,16 @@ npm test
 ```
 
 Los tests de integración usan una base de datos aparte (`helpdesk_test`), que Docker Compose crea automáticamente. Así nunca tocan tus datos de desarrollo.
+
+### ⚙️ Integración continua
+
+[GitHub Actions](./.github/workflows/ci.yml) se ejecuta en cada push a `main` y en cada Pull Request:
+
+1. Levanta un PostgreSQL real como servicio.
+2. Instala dependencias, comprueba tipos, ejecuta todos los tests y compila, con **Node 24 y 26**.
+3. Construye la imagen Docker del backend.
+
+Un PR solo se fusiona si todo está en verde.
 
 ## 🩺 Problemas comunes
 

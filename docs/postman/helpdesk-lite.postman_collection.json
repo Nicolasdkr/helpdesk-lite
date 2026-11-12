@@ -10,7 +10,8 @@
     { "key": "agentToken", "value": "" },
     { "key": "adminToken", "value": "" },
     { "key": "ticketId", "value": "" },
-    { "key": "assigneeId", "value": "" }
+    { "key": "assigneeId", "value": "" },
+    { "key": "commentId", "value": "" }
   ],
   "item": [
     {
@@ -273,6 +274,78 @@
             "method": "DELETE",
             "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
             "url": "{{baseUrl}}/tickets/{{ticketId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "description": "Usa el ticket guardado en {{ticketId}}: ejecuta antes 'Crear ticket (USER)'.",
+      "item": [
+        {
+          "name": "Comentar (USER)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('commentId', pm.response.json().comment.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{userToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"¿Hay alguna novedad? Necesito el calendario para mañana.\"\n}"
+            },
+            "url": "{{baseUrl}}/tickets/{{ticketId}}/comments"
+          }
+        },
+        {
+          "name": "Nota interna (AGENT)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{agentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Parece un problema del perfil de Outlook. Probar a recrearlo.\",\n  \"isInternal\": true\n}"
+            },
+            "url": "{{baseUrl}}/tickets/{{ticketId}}/comments"
+          }
+        },
+        {
+          "name": "Ver comentarios (USER, sin notas internas)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+            "url": "{{baseUrl}}/tickets/{{ticketId}}/comments"
+          }
+        },
+        {
+          "name": "Ver comentarios (AGENT, todos)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{agentToken}}" }],
+            "url": "{{baseUrl}}/tickets/{{ticketId}}/comments"
+          }
+        },
+        {
+          "name": "Borrar mi comentario (USER)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+            "url": "{{baseUrl}}/tickets/{{ticketId}}/comments/{{commentId}}"
           }
         }
       ]
