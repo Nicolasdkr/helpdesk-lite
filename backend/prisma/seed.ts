@@ -35,6 +35,7 @@ type SampleTicket = {
   createdBy: "user" | "agent";
   assigned: boolean;
   daysAgo: number;
+  comments?: { by: "user" | "agent"; body: string; internal?: boolean }[];
 };
 
 const tickets: SampleTicket[] = [
@@ -57,6 +58,11 @@ const tickets: SampleTicket[] = [
     createdBy: "user",
     assigned: true,
     daysAgo: 1,
+    comments: [
+      { by: "agent", body: "Hola, paso por la planta 2 en una hora para revisarla." },
+      { by: "agent", body: "El rodillo de arrastre está desgastado. Pedido repuesto al proveedor.", internal: true },
+      { by: "user", body: "¡Gracias! Mientras tanto uso la impresora de la planta 1." },
+    ],
   },
   {
     title: "Solicitud de acceso a la carpeta de Finanzas",
@@ -107,6 +113,10 @@ const tickets: SampleTicket[] = [
     createdBy: "user",
     assigned: true,
     daysAgo: 5,
+    comments: [
+      { by: "agent", body: "He desbloqueado la cuenta. Prueba a entrar con la contraseña nueva." },
+      { by: "user", body: "Ya puedo entrar, muchas gracias." },
+    ],
   },
   {
     title: "El proyector de la sala de reuniones no detecta HDMI",
@@ -138,13 +148,15 @@ async function main() {
     const demoUser = await prisma.user.findUniqueOrThrow({ where: { email: "user@helpdesk.dev" } });
     const demoAgent = await prisma.user.findUniqueOrThrow({ where: { email: "agent@helpdesk.dev" } });
 
-    for (const { createdBy, assigned, daysAgo: age, ...t } of tickets) {
+    const idOf = (who: "user" | "agent") => (who === "user" ? demoUser.id : demoAgent.id);
+
+    for (const { createdBy, assigned, daysAgo: age, comments: _c, ...t } of tickets) {
       const createdAt = daysAgo(age);
       await prisma.ticket.create({
         data: {
           ...t,
           createdAt,
-          createdById: createdBy === "user" ? demoUser.id : demoAgent.id,
+          createdById: idOf(createdBy),
           assignedToId: assigned ? demoAgent.id : null,
           resolvedAt: t.status === "RESOLVED" || t.status === "CLOSED" ? createdAt : null,
         },
@@ -152,9 +164,33 @@ async function main() {
     }
   }
 
+  // Comentarios de ejemplo (por separado, para poder añadirlos a una BD que ya tenía tickets).
+  if ((await prisma.comment.count()) === 0) {
+    const demoUser = await prisma.user.findUniqueOrThrow({ where: { email: "user@helpdesk.dev" } });
+    const demoAgent = await prisma.user.findUniqueOrThrow({ where: { email: "agent@helpdesk.dev" } });
+    const idOf = (who: "user" | "agent") => (who === "user" ? demoUser.id : demoAgent.id);
+
+    for (const sample of tickets.filter((t) => t.comments?.length)) {
+      const ticket = await prisma.ticket.findFirst({ where: { title: sample.title } });
+      if (!ticket) continue;
+
+      await prisma.comment.createMany({
+        data: sample.comments!.map((c, i) => ({
+          ticketId: ticket.id,
+          body: c.body,
+          isInternal: c.internal ?? false,
+          authorId: idOf(c.by),
+          // Un comentario cada 30 minutos desde la creación del ticket
+          createdAt: new Date(ticket.createdAt.getTime() + (i + 1) * 30 * 60 * 1000),
+        })),
+      });
+    }
+  }
+
   console.log(`🌱 Seed completado. Usuarios demo (contraseña: ${DEMO_PASSWORD}):`);
   users.forEach((u) => console.log(`   ${u.role.padEnd(5)} → ${u.email}`));
   console.log(`   Tickets en la base de datos: ${await prisma.ticket.count()}`);
+  console.log(`   Comentarios en la base de datos: ${await prisma.comment.count()}`);
 }
 
 main()
