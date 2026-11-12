@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authenticate, authorize } from "../../middlewares/auth.js";
+import { commentsRouter } from "../comments/comments.routes.js";
 import * as tickets from "./tickets.controller.js";
 
 export const ticketsRouter = Router();
@@ -14,3 +15,5 @@ ticketsRouter.patch("/:id", tickets.update);
 ticketsRouter.patch("/:id/status", authorize("AGENT", "ADMIN"), tickets.changeStatus);
 ticketsRouter.patch("/:id/assign", authorize("AGENT", "ADMIN"), tickets.assign);
 ticketsRouter.delete("/:id", authorize("ADMIN"), tickets.remove);
+
+ticketsRouter.use("/:id/comments", commentsRouter);

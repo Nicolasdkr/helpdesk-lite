@@ -17,7 +17,7 @@ const ALLOWED_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   CLOSED: [],
 };
 
-const isStaff = (user: TokenPayload) => user.role === "AGENT" || user.role === "ADMIN";
+export const isStaff = (user: TokenPayload) => user.role === "AGENT" || user.role === "ADMIN";
 
 /** Un USER solo ve sus propios tickets; AGENT y ADMIN ven todos. */
 const visibilityFilter = (user: TokenPayload): Prisma.TicketWhereInput =>
@@ -27,7 +27,7 @@ const visibilityFilter = (user: TokenPayload): Prisma.TicketWhereInput =>
  * Busca un ticket respetando la visibilidad del usuario.
  * Un ticket ajeno responde 404 (no 403) para no revelar que existe.
  */
-async function findVisibleTicket(id: string, user: TokenPayload) {
+export async function findVisibleTicket(id: string, user: TokenPayload) {
   const ticket = await prisma.ticket.findFirst({
     where: { id, ...visibilityFilter(user) },
     include: ticketInclude,
