@@ -12,7 +12,18 @@
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-<!-- TODO: añadir captura o GIF de la app cuando el frontend esté listo -->
+![Lista de tickets vista por un técnico](./docs/screenshots/tickets-list.png)
+
+<table>
+  <tr>
+    <td width="68%"><img src="./docs/screenshots/ticket-detail.png" alt="Detalle de un ticket con conversación y nota interna"></td>
+    <td width="32%"><img src="./docs/screenshots/mobile.png" alt="Vista móvil"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Detalle: conversación, nota interna (en amarillo) y panel del técnico</sub></td>
+    <td align="center"><sub>Diseño adaptado a móvil</sub></td>
+  </tr>
+</table>
 
 ## 📌 Descripción
 
@@ -29,7 +40,7 @@
 - [x] Asignación de tickets a técnicos y flujo de estados validado
 - [x] Comentarios en tickets, con notas internas solo visibles para soporte
 - [ ] Panel con métricas (tickets abiertos, por prioridad, tiempo de resolución)
-- [ ] Frontend en React
+- [x] Frontend en React: login con cuentas demo, lista con filtros en la URL, detalle con conversación y acciones según el rol
 - [x] Integración continua con GitHub Actions
 
 ## 🛠️ Stack tecnológico
@@ -41,7 +52,9 @@
 | Validación | Zod | Esquemas tipados reutilizables |
 | ORM | Prisma 7 | Migraciones versionadas y tipos generados |
 | Base de datos | PostgreSQL 17 | Relacional, robusta y gratuita |
-| Tests | Vitest + Supertest | Rápidos y con sintaxis moderna |
+| Datos en el frontend | TanStack Query | Caché, reintentos y estados de carga sin código repetido |
+| Formularios | React Hook Form + Zod | Mismas reglas de validación que el backend |
+| Tests | Vitest + Supertest + Testing Library | Rápidos y con sintaxis moderna |
 | Infraestructura | Docker + Docker Compose | Un solo comando para levantar todo |
 
 ## 🏗️ Arquitectura
@@ -58,8 +71,16 @@ helpdesk-lite/
 │   │   ├── app.ts           # Configuración de Express (testeable)
 │   │   └── server.ts        # Punto de entrada
 │   └── tests/
-├── frontend/                # (próximamente)
-├── docs/                    # Documentación adicional
+├── frontend/
+│   ├── src/
+│   │   ├── auth/            # Sesión (contexto), protección de rutas
+│   │   ├── components/      # UI reutilizable, layout y piezas de tickets
+│   │   ├── features/        # Hooks de datos por dominio (TanStack Query)
+│   │   ├── lib/             # Cliente HTTP, formatos y etiquetas
+│   │   ├── pages/           # Una página por ruta (cargadas bajo demanda)
+│   │   └── types/           # Tipos de las respuestas de la API
+│   └── nginx.conf           # Sirve la SPA y hace de proxy a /api en Docker
+├── docs/                    # Capturas y colección de Postman
 └── docker-compose.yml
 ```
 
@@ -88,7 +109,8 @@ docker compose up --build -d
 docker compose exec backend npx prisma db seed
 ```
 
-La API queda en http://localhost:3000/api/health
+Abre **http://localhost:8080** y entra con una de las cuentas de demostración (hay botones para rellenarlas en el login).
+La API queda en http://localhost:3000/api.
 
 ### Opción B — Desarrollo local (con recarga en caliente)
 
@@ -96,16 +118,21 @@ La API queda en http://localhost:3000/api/health
 # 1. Levanta solo la base de datos
 docker compose up -d db
 
-# 2. Instala dependencias y configura el entorno
+# 2. API (terminal 1)
 cd backend
 cp .env.example .env
 npm install
-
-# 3. Aplica las migraciones, crea los usuarios demo y arranca
 npm run db:migrate
 npm run db:seed
 npm run dev
+
+# 3. Frontend (terminal 2)
+cd frontend
+npm install
+npm run dev
 ```
+
+Abre **http://localhost:5173**. Vite reenvía las peticiones a `/api` hacia la API en el puerto 3000.
 
 ### 🧰 Probar la API
 
@@ -122,7 +149,11 @@ Todos usan la contraseña `Password123!`
 | AGENT | `agent@helpdesk.dev` | Atender y resolver tickets |
 | USER | `user@helpdesk.dev` | Crear y seguir sus propios tickets |
 
-### Scripts útiles (`backend/`)
+### Scripts útiles
+
+En `frontend/`: `npm run dev` (Vite), `npm test`, `npm run lint`, `npm run build`.
+
+En `backend/`:
 
 | Comando | Descripción |
 |---------|-------------|
@@ -200,23 +231,27 @@ Todas las respuestas de error comparten el formato `{ "error": { "message": "...
 - El registro público no permite elegir el rol: `AGENT` y `ADMIN` solo los asigna un administrador.
 - El login devuelve el mismo error si el email no existe o la contraseña es incorrecta, para no revelar qué cuentas existen.
 - Cabeceras HTTP seguras con **Helmet** y CORS restringido.
+- En el frontend, el JWT se guarda en `localStorage` por simplicidad. En producción sería más seguro usar una cookie `httpOnly`, que JavaScript no puede leer.
 
 ## 🧪 Tests
 
 ```bash
-cd backend
-npm test
+cd backend && npm test    # 62 tests de integración contra PostgreSQL
+cd frontend && npm test   # tests de componentes con Testing Library
 ```
 
 Los tests de integración usan una base de datos aparte (`helpdesk_test`), que Docker Compose crea automáticamente. Así nunca tocan tus datos de desarrollo.
+
+Los tests del frontend renderizan las páginas con un `fetch` simulado. Comprueban la validación de formularios, el inicio de sesión, los filtros y a qué página se vuelve tras iniciar sesión.
 
 ### ⚙️ Integración continua
 
 [GitHub Actions](./.github/workflows/ci.yml) se ejecuta en cada push a `main` y en cada Pull Request:
 
 1. Levanta un PostgreSQL real como servicio.
-2. Instala dependencias, comprueba tipos, ejecuta todos los tests y compila, con **Node 24 y 26**.
-3. Construye la imagen Docker del backend.
+2. **Backend:** instala dependencias, comprueba tipos, ejecuta todos los tests y compila, con **Node 24 y 26**.
+3. **Frontend:** lint, comprobación de tipos, tests y build de producción.
+4. Construye las imágenes Docker del backend y del frontend.
 
 Un PR solo se fusiona si todo está en verde.
 
