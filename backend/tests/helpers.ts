@@ -14,13 +14,16 @@ export async function resetDb() {
 }
 
 /** Crea un usuario directamente en la BD y devuelve un token válido para él. */
+let userCounter = 0;
+
 export async function createUserAndLogin(role: Role = "USER") {
-  const email = `${role.toLowerCase()}-${Date.now()}@test.dev`;
+  const email = `${role.toLowerCase()}-${Date.now()}-${++userCounter}@test.dev`;
   const password = "Password123!";
-  await prisma.user.create({
+  const user = await prisma.user.create({
     data: { name: `Test ${role}`, email, role, passwordHash: await hashPassword(password) },
   });
 
   const res = await request(app).post("/api/auth/login").send({ email, password });
-  return { email, token: res.body.token as string };
+  const token = res.body.token as string;
+  return { id: user.id, email, token, auth: { Authorization: `Bearer ${token}` } };
 }
