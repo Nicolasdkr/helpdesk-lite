@@ -1,5 +1,8 @@
 /**
- * Datos de ejemplo para desarrollo: un usuario por rol.
+ * Datos de ejemplo para desarrollo:
+ * - un usuario demo por rol (más una técnica y dos empleados extra),
+ * - 8 tickets "de escaparate" con conversación,
+ * - un histórico de ~45 tickets para el panel de métricas (ver seed-history.ts).
  * Ejecutar con: npm run db:seed
  * Es idempotente: se puede ejecutar varias veces sin duplicar datos.
  */
@@ -13,6 +16,7 @@ import {
   type TicketPriority,
   type TicketStatus,
 } from "../src/generated/prisma/client.js";
+import { generateHistory } from "./seed-history.js";
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env["DATABASE_URL"] }),
@@ -24,6 +28,13 @@ const users: { name: string; email: string; role: Role }[] = [
   { name: "Ana Admin", email: "admin@helpdesk.dev", role: "ADMIN" },
   { name: "Tomás Técnico", email: "agent@helpdesk.dev", role: "AGENT" },
   { name: "Elena Empleada", email: "user@helpdesk.dev", role: "USER" },
+];
+
+/** Usuarios extra para que el histórico y la carga por técnico sean variados (misma contraseña). */
+const extraUsers: { name: string; email: string; role: Role }[] = [
+  { name: "Sofía Soporte", email: "agent2@helpdesk.dev", role: "AGENT" },
+  { name: "Marta Marketing", email: "marta@helpdesk.dev", role: "USER" },
+  { name: "Jorge Contable", email: "jorge@helpdesk.dev", role: "USER" },
 ];
 
 type SampleTicket = {
@@ -135,7 +146,7 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
 async function main() {
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
-  for (const u of users) {
+  for (const u of [...users, ...extraUsers]) {
     await prisma.user.upsert({
       where: { email: u.email },
       update: {},
@@ -158,10 +169,25 @@ async function main() {
           createdAt,
           createdById: idOf(createdBy),
           assignedToId: assigned ? demoAgent.id : null,
-          resolvedAt: t.status === "RESOLVED" || t.status === "CLOSED" ? createdAt : null,
+          // Resuelto unas horas después de crearse (nunca en el futuro).
+          resolvedAt:
+            t.status === "RESOLVED" || t.status === "CLOSED"
+              ? new Date(Math.min(createdAt.getTime() + 5 * 60 * 60 * 1000, Date.now()))
+              : null,
         },
       });
     }
+  }
+
+  // Histórico para el panel de métricas: solo si aún no existe (los tickets de escaparate son 8).
+  if ((await prisma.ticket.count()) < 20) {
+    const byEmail = async (email: string) => (await prisma.user.findUniqueOrThrow({ where: { email } })).id;
+    const history = generateHistory({
+      // Elena no aparece como creadora: su vista "Mis tickets" sigue siendo la de los 8 de escaparate.
+      creators: [await byEmail("marta@helpdesk.dev"), await byEmail("jorge@helpdesk.dev")],
+      agents: [await byEmail("agent@helpdesk.dev"), await byEmail("agent2@helpdesk.dev")],
+    });
+    await prisma.ticket.createMany({ data: history });
   }
 
   // Comentarios de ejemplo (por separado, para poder añadirlos a una BD que ya tenía tickets).
@@ -189,6 +215,7 @@ async function main() {
 
   console.log(`🌱 Seed completado. Usuarios demo (contraseña: ${DEMO_PASSWORD}):`);
   users.forEach((u) => console.log(`   ${u.role.padEnd(5)} → ${u.email}`));
+  console.log(`   (y además: ${extraUsers.map((u) => u.email).join(", ")})`);
   console.log(`   Tickets en la base de datos: ${await prisma.ticket.count()}`);
   console.log(`   Comentarios en la base de datos: ${await prisma.comment.count()}`);
 }
