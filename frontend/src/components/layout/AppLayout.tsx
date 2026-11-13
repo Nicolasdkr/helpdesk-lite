@@ -14,7 +14,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   );
 
 export function AppLayout() {
-  const { user, logout } = useAuth();
+  const { user, isStaff, logout } = useAuth();
   if (!user) return null;
 
   return (
@@ -22,13 +22,18 @@ export function AppLayout() {
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 sm:px-6">
           <Link to="/" aria-label="Inicio">
-            <Logo />
+            <Logo compact />
           </Link>
 
-          <nav className="hidden sm:block">
+          <nav className="flex items-center gap-1" aria-label="Principal">
             <NavLink to="/" end className={navLinkClass}>
               Tickets
             </NavLink>
+            {isStaff && (
+              <NavLink to="/dashboard" className={navLinkClass}>
+                Panel
+              </NavLink>
+            )}
           </nav>
 
           <div className="ml-auto flex items-center gap-2 sm:gap-3">

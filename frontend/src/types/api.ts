@@ -50,6 +50,32 @@ export interface Paginated<T> {
   meta: { page: number; pageSize: number; total: number; totalPages: number };
 }
 
+export type MetricsPeriod = 7 | 30 | 90;
+
+export interface Metrics {
+  range: { days: MetricsPeriod; from: string; to: string };
+  summary: {
+    total: number;
+    active: number;
+    unassigned: number;
+    urgentActive: number;
+    resolved: number;
+    avgResolutionHours: number | null;
+  };
+  byStatus: Record<TicketStatus, number>;
+  byPriority: Record<TicketPriority, number>;
+  byCategory: Record<TicketCategory, number>;
+  daily: { date: string; created: number; resolved: number }[];
+  agents: {
+    id: string;
+    name: string;
+    role: Role;
+    active: number;
+    resolved: number;
+    avgResolutionHours: number | null;
+  }[];
+}
+
 export interface AuthResponse {
   user: User;
   token: string;

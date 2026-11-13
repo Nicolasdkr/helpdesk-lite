@@ -26,6 +26,10 @@ const router = createBrowserRouter([
             lazy: () => import("./pages/TicketsPage").then((m) => ({ Component: m.TicketsPage })),
           },
           {
+            path: "dashboard",
+            lazy: () => import("./pages/DashboardPage").then((m) => ({ Component: m.DashboardPage })),
+          },
+          {
             path: "tickets/new",
             lazy: () => import("./pages/NewTicketPage").then((m) => ({ Component: m.NewTicketPage })),
           },

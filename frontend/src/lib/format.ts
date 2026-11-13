@@ -22,6 +22,26 @@ export function formatRelative(iso: string, now: Date = new Date()) {
   return "ahora";
 }
 
+const number1 = new Intl.NumberFormat("es", { maximumFractionDigits: 1 });
+const percent = new Intl.NumberFormat("es", { style: "percent", maximumFractionDigits: 0 });
+const shortDay = new Intl.DateTimeFormat("es", { day: "numeric", month: "short", timeZone: "UTC" });
+const longDay = new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+
+/** Duración legible: "45 min", "23,7 h", "3,2 días". */
+export function formatDuration(hours: number | null) {
+  if (hours === null) return "—";
+  if (hours < 1) return `${Math.round(hours * 60)} min`;
+  if (hours < 48) return `${number1.format(hours)} h`;
+  return `${number1.format(hours / 24)} días`;
+}
+
+export const formatPercent = (ratio: number) => percent.format(ratio);
+
+/** Las fechas de la serie diaria llegan como "YYYY-MM-DD" (días UTC). */
+const utcDate = (day: string) => new Date(`${day}T00:00:00Z`);
+export const formatShortDay = (day: string) => shortDay.format(utcDate(day)).replace(".", "");
+export const formatLongDay = (day: string) => longDay.format(utcDate(day));
+
 /** Iniciales para el avatar: "Ana Admin" → "AA". */
 export const initials = (name: string) =>
   name
