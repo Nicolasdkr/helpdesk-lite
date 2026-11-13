@@ -14,6 +14,13 @@
 
 ![Ticket list as seen by a technician](./docs/screenshots/tickets-list.png)
 
+<details>
+<summary><b>Metrics dashboard</b> (technicians and admins)</summary>
+
+![Metrics dashboard: KPIs, daily trend, status, priority, category, and per-technician workload](./docs/screenshots/dashboard.png)
+
+</details>
+
 <table>
   <tr>
     <td width="68%"><img src="./docs/screenshots/ticket-detail.png" alt="Ticket details with conversation and internal note"></td>
@@ -41,7 +48,7 @@
 - [x] Ticket CRUD with filters, search, sorting, and pagination
 - [x] Ticket assignment to technicians and a validated status workflow
 - [x] Ticket comments, with internal notes visible only to support staff
-- [ ] Metrics dashboard (open tickets, by priority, resolution time)
+- [x] Support metrics dashboard: KPIs, created vs. resolved per day, status, priority, category, and per-technician workload
 - [x] React frontend: login with demo accounts, list with URL-based filters, ticket details with conversation and role-based actions
 - [x] Continuous integration with GitHub Actions
 
@@ -151,6 +158,8 @@ All of them use the password `Password123!`
 | AGENT | `agent@helpdesk.dev` | Handle and resolve tickets |
 | USER | `user@helpdesk.dev` | Create and follow their own tickets |
 
+The seed also creates a second technician (`agent2@helpdesk.dev`), two employees, and a **history of about 45 tickets** spread over 75 days. It uses a fixed-seed pseudo-random generator, so the metrics dashboard has realistic data and looks the same on every machine.
+
 ### Useful scripts
 
 In `frontend/`: `npm run dev` (Vite), `npm test`, `npm run lint`, `npm run build`.
@@ -164,7 +173,7 @@ In `backend/`:
 | `npm run typecheck` | Type-check with TypeScript |
 | `npm run build` | Compile to JavaScript in `dist/` |
 | `npm run db:migrate` | Create/apply migrations |
-| `npm run db:seed` | Create the demo users and tickets |
+| `npm run db:seed` | Create the demo users, tickets, and history |
 | `npm run db:studio` | Visual database browser |
 
 ## 📡 API
@@ -180,6 +189,7 @@ Protected routes require the `Authorization: Bearer <token>` header. Get a token
 | GET | `/api/auth/me` | Authenticated | Current user profile |
 | GET | `/api/users` | `ADMIN` | List users |
 | GET | `/api/users/agents` | `AGENT`, `ADMIN` | Technicians a ticket can be assigned to |
+| GET | `/api/metrics?days=7\|30\|90` | `AGENT`, `ADMIN` | Dashboard metrics: summary, distributions, daily series, and workload |
 | GET | `/api/tickets` | Authenticated | Paginated list with filters (see below) |
 | POST | `/api/tickets` | Authenticated | Create a ticket |
 | GET | `/api/tickets/:id` | Authenticated | Ticket details |
@@ -238,7 +248,7 @@ All error responses share the format `{ "error": { "message": "...", "details": 
 ## 🧪 Tests
 
 ```bash
-cd backend && npm test    # 62 integration tests against PostgreSQL
+cd backend && npm test    # 71 integration tests against PostgreSQL
 cd frontend && npm test   # component tests with Testing Library
 ```
 

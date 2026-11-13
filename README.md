@@ -14,6 +14,13 @@
 
 ![Lista de tickets vista por un técnico](./docs/screenshots/tickets-list.png)
 
+<details>
+<summary><b>Panel de métricas</b> (técnicos y administradores)</summary>
+
+![Panel de métricas: KPIs, tendencia diaria, estado, prioridad, categoría y carga por técnico](./docs/screenshots/dashboard.png)
+
+</details>
+
 <table>
   <tr>
     <td width="68%"><img src="./docs/screenshots/ticket-detail.png" alt="Detalle de un ticket con conversación y nota interna"></td>
@@ -39,7 +46,7 @@
 - [x] CRUD de tickets con filtros, búsqueda, orden y paginación
 - [x] Asignación de tickets a técnicos y flujo de estados validado
 - [x] Comentarios en tickets, con notas internas solo visibles para soporte
-- [ ] Panel con métricas (tickets abiertos, por prioridad, tiempo de resolución)
+- [x] Panel de métricas para soporte: KPIs, creados frente a resueltos por día, estado, prioridad, categoría y carga por técnico
 - [x] Frontend en React: login con cuentas demo, lista con filtros en la URL, detalle con conversación y acciones según el rol
 - [x] Integración continua con GitHub Actions
 
@@ -149,6 +156,8 @@ Todos usan la contraseña `Password123!`
 | AGENT | `agent@helpdesk.dev` | Atender y resolver tickets |
 | USER | `user@helpdesk.dev` | Crear y seguir sus propios tickets |
 
+El seed crea además una segunda técnica (`agent2@helpdesk.dev`), dos empleados y un **histórico de unos 45 tickets** repartidos en 75 días. Lo genera un pseudoaleatorio con semilla fija, así que el panel de métricas tiene datos realistas y es igual en cualquier PC.
+
 ### Scripts útiles
 
 En `frontend/`: `npm run dev` (Vite), `npm test`, `npm run lint`, `npm run build`.
@@ -162,7 +171,7 @@ En `backend/`:
 | `npm run typecheck` | Verifica tipos de TypeScript |
 | `npm run build` | Compila a JavaScript en `dist/` |
 | `npm run db:migrate` | Crea/aplica migraciones |
-| `npm run db:seed` | Crea los usuarios y tickets de demostración |
+| `npm run db:seed` | Crea los usuarios, tickets e histórico de demostración |
 | `npm run db:studio` | Explorador visual de la base de datos |
 
 ## 📡 API
@@ -178,6 +187,7 @@ Las rutas protegidas requieren la cabecera `Authorization: Bearer <token>`. El t
 | GET | `/api/auth/me` | Autenticado | Perfil del usuario actual |
 | GET | `/api/users` | `ADMIN` | Lista de usuarios |
 | GET | `/api/users/agents` | `AGENT`, `ADMIN` | Técnicos a los que se puede asignar un ticket |
+| GET | `/api/metrics?days=7\|30\|90` | `AGENT`, `ADMIN` | Métricas del panel: resumen, distribuciones, serie diaria y carga por técnico |
 | GET | `/api/tickets` | Autenticado | Lista paginada con filtros (ver abajo) |
 | POST | `/api/tickets` | Autenticado | Crear un ticket |
 | GET | `/api/tickets/:id` | Autenticado | Detalle de un ticket |
@@ -236,7 +246,7 @@ Todas las respuestas de error comparten el formato `{ "error": { "message": "...
 ## 🧪 Tests
 
 ```bash
-cd backend && npm test    # 62 tests de integración contra PostgreSQL
+cd backend && npm test    # 71 tests de integración contra PostgreSQL
 cd frontend && npm test   # tests de componentes con Testing Library
 ```
 
